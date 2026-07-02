@@ -1,0 +1,2 @@
+run,run_id,n_questions,Recall@5,Recall@10,Citation Precision,Faithfulness,Hallucination Rate,True-Refusal Rate,Over-Refusal Rate
+88befd366b,88befd366b,3,1.0,1.0,1.0,1.0,0.0,,0.0
