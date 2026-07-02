@@ -11,6 +11,9 @@ dependencies = [
     "lxml>=5.3",
     "tqdm>=4.67",
     "tenacity>=9.0",
+    "openai>=2.44.0",
+    "sentence-transformers>=5.6.0",
+    "numpy>=2.5.0",
 ]
 
 [tool.uv]

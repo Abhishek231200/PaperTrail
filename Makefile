@@ -18,6 +18,9 @@ stats:
 index:
 	uv run python -m src.retrieval.build_index
 
+retrieve:
+	uv run python -m src.retrieval.cli "$(Q)"
+
 ask:
 	uv run python -m src.agent.cli "$(Q)"
 
