@@ -1,0 +1,22 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: papertrail-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: papertrail
+      POSTGRES_PASSWORD: papertrail
+      POSTGRES_DB: papertrail
+    ports:
+      - "5432:5432"
+    volumes:
+      - papertrail-pgdata:/var/lib/postgresql/data
+      - ./src/corpus/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U papertrail -d papertrail"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  papertrail-pgdata:

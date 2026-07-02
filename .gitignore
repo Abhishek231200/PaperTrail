@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+data/raw/*.xml
+*.egg-info/
+.DS_Store
+evals/results/*.jsonl
+.ruff_cache/
