@@ -6,4 +6,5 @@ data/raw/*.xml
 *.egg-info/
 .DS_Store
 evals/results/*.jsonl
+runs/
 .ruff_cache/
