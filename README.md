@@ -79,6 +79,57 @@ producing exactly the kind of overgeneralization the judge is designed to
 catch. **Sentence-window + hybrid RRF + reranking is the shipped default**
 (`config.yaml`).
 
+### No-RAG baseline: does retrieval actually help?
+
+Every result above asserts that grounding in retrieved evidence matters. To
+measure that instead of asserting it, I ran the same 50 golden-set questions
+through the same generator model (`gpt-4o-mini`) with **no retrieval at all**
+— same refusal affordance (it can still say "I don't know" instead of
+guessing), same judge, but no evidence in its context. Faithfulness is judged
+against the *real* corpus evidence for each question (fetched fresh, never
+shown to the model), using a citation-blind judge variant so an ungrounded
+answer isn't unfairly penalized just for lacking `[PMID:...]` tags it had no
+way to produce (see `src/evals/baseline_norag.py`).
+
+| Run | Faithfulness | Hallucination Rate | True-Refusal Rate | Over-Refusal Rate |
+|---|---|---|---|---|
+| No-RAG baseline (gpt-4o-mini, no evidence) | 31.5% | 75.0% | 30.8% | 5.4% |
+| **PaperTrail (shipped, sentence-window + hybrid + rerank)** | **77.7%** | **39.0%** | **69.2%** | 0.0% |
+
+Three things move, not one. Faithfulness more than doubles. Hallucination
+rate nearly doubles *without* retrieval (75.0% vs. 39.0%) — three in four
+non-refused answers contain at least one claim the real literature doesn't
+support. And true-refusal rate on genuinely unanswerable questions collapses
+from 69.2% to 30.8%: without retrieved evidence to check itself against, the
+model defaults to confidently answering fabricated-trial and false-premise
+questions it should be declining. This is the clearest evidence in the whole
+project that the retrieval + verification pipeline is load-bearing, not
+decorative.
+
+### Cost & latency
+
+Measured over the same 50 questions, agent-only (excludes judge calls, which
+are an eval-time cost never incurred in production; excludes embedding calls,
+negligible at this token volume) — see `src/evals/cost_latency.py`:
+
+| Metric | Value |
+|---|---|
+| Mean prompt tokens / query | 4,293 |
+| Mean completion tokens / query | 469 |
+| Mean LLM calls / query | 3.5 (plan + synthesize + verify, more on retry) |
+| Retried at least once | 16/50 (32.0%) |
+| Mean wall-clock latency | 12.6s |
+| p50 / p95 latency | 10.8s / 25.7s |
+| Estimated cost / query (`gpt-4o-mini` pricing) | $0.00093 |
+| Estimated cost / 1,000 queries | $0.93 |
+
+Cost is a non-issue at this scale. Latency is the honest finding here: 12.6s
+mean (and a 25.7s p95) is slow for an interactive tool — most of it is the
+sequential PLAN → RETRIEVE → SYNTHESIZE → VERIFY chain, and the 32% retry rate
+means a third of queries pay for a second RETRIEVE → SYNTHESIZE → VERIFY pass.
+The obvious next lever, not yet built: parallelizing independent sub-query
+retrievals inside RETRIEVE rather than running them sequentially.
+
 ### Prompt iteration: fixing an over-refusal bug
 
 While reviewing run D's failures I found two comparative questions
@@ -192,6 +243,20 @@ its cited abstract, fetched fresh from Postgres rather than from the judge's
 context: **34/34 (100%) agreement**, including the judge's more nuanced
 `partially_supported` calls. See `evals/results/spotcheck_report.md`.
 
+**A limitation worth naming directly:** the golden set was constructed with
+LLM assistance from the same overall model family used to build and run the
+system, not by a fully independent, blind third party — a form of
+"self-graded homework" risk that a from-scratch human-authored benchmark
+wouldn't have. Three mitigations are in place, but none of them fully removes
+the risk: (1) the judge model is different from and stronger than the
+generator, specifically to avoid a model validating its own answers; (2) every
+golden-set claim was checked against a verbatim quote or an independent
+per-PMID verification call at construction time, not just accepted from a
+single LLM draft; (3) the human spot-check above measures judge-vs-human
+agreement, not golden-set correctness itself. A true third-party-authored
+benchmark, or a domain-expert review pass, would be the natural way to close
+this gap further.
+
 **Reproducibility:** every eval run's `run_id` is a hash of the retrieval
 config, chunking/embedding/generation/judge model choices, *and* the versioned
 agent/judge prompt strings — so a prompt edit (like the synthesize-v2 fix)
@@ -269,4 +334,13 @@ make eval                 # full 50-question golden set -> evals/results/<run_id
 python -m src.evals.report <run_id> [<run_id> ...]   # results table
 make ablate                                           # retrieval-only A-E grid
 make ingest-fulltext                                  # 50 PMC OA full-text papers
+make baseline-norag                                   # no-RAG comparison
+make cost-latency                                     # tokens + wall-clock per query
+
+uv run pytest tests/ -v                               # unit tests, no API keys/DB needed
 ```
+
+CI (`.github/workflows/ci.yml`) runs the unit test suite on every push/PR —
+it deliberately does not run ingestion or eval, both of which need live API
+keys and a running Postgres instance that aren't available in a shared CI
+runner without secrets management.

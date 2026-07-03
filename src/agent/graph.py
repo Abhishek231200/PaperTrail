@@ -3,12 +3,13 @@ retry loop back to RETRIEVE if VERIFY finds an unsupported claim.
 
 Refusal (INSUFFICIENT_EVIDENCE) is a first-class terminal state, not an error.
 """
+import time
 from typing import TypedDict
 
 import yaml
 from langgraph.graph import END, StateGraph
 
-from src.agent.llm import call_json
+from src.agent.llm import call_json, get_usage_log, reset_usage_log
 from src.agent.prompts import PLAN_SYSTEM, SYNTHESIZE_SYSTEM, VERIFY_SYSTEM
 from src.agent.trace import RunTracer
 from src.corpus.db import get_papers_by_pmid
@@ -143,7 +144,17 @@ def build_graph():
 def run(question: str) -> AgentState:
     tracer = RunTracer(question)
     app = build_graph()
+
+    reset_usage_log()
+    wall_clock_start = time.monotonic()
     final_state = app.invoke({"question": question, "tracer": tracer})
+    wall_clock_ms = (time.monotonic() - wall_clock_start) * 1000
+    usage = get_usage_log()
+
     tracer.finish({k: v for k, v in final_state.items() if k != "tracer"})
     final_state["run_id"] = tracer.run_id
+    final_state["wall_clock_ms"] = wall_clock_ms
+    final_state["prompt_tokens"] = sum(u["prompt_tokens"] for u in usage)
+    final_state["completion_tokens"] = sum(u["completion_tokens"] for u in usage)
+    final_state["n_llm_calls"] = len(usage)
     return final_state

@@ -70,3 +70,38 @@ def compute_metrics(rows: list[dict]) -> dict:
 def load_raw(run_id: str) -> list[dict]:
     path = Path("evals/results") / run_id / "raw.jsonl"
     return [json.loads(line) for line in open(path)]
+
+
+def compute_baseline_metrics(rows: list[dict]) -> dict:
+    """Same faithfulness/hallucination/refusal definitions as compute_metrics,
+    for the no-RAG baseline. Recall and citation precision don't apply -- a
+    baseline with no retrieval step has no PMIDs to recall or cite."""
+    answerable = [r for r in rows if r["answerable_gold"]]
+    unanswerable = [r for r in rows if not r["answerable_gold"]]
+
+    all_claims = [c for r in rows for c in r["judge_claims"]]
+    n_claims = len(all_claims)
+    n_supported = sum(1 for c in all_claims if c.get("verdict") == "supported")
+    faithfulness = n_supported / n_claims if n_claims else None
+
+    answered_rows = [r for r in rows if r["sufficient"]]
+    n_hallucinated = sum(
+        1 for r in answered_rows
+        if any(c.get("verdict") == "unsupported" for c in r["judge_claims"])
+    )
+    hallucination_rate = n_hallucinated / len(answered_rows) if answered_rows else None
+
+    true_refusals = sum(1 for r in unanswerable if not r["sufficient"])
+    true_refusal_rate = true_refusals / len(unanswerable) if unanswerable else None
+
+    over_refusals = sum(1 for r in answerable if not r["sufficient"])
+    over_refusal_rate = over_refusals / len(answerable) if answerable else None
+
+    return {
+        "n_questions": len(rows),
+        "faithfulness": faithfulness,
+        "hallucination_rate": hallucination_rate,
+        "true_refusal_rate": true_refusal_rate,
+        "over_refusal_rate": over_refusal_rate,
+        "n_claims_judged": n_claims,
+    }

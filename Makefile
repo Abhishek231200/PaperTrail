@@ -37,5 +37,11 @@ report:
 ablate:
 	uv run python -m src.evals.ablate
 
+cost-latency:
+	uv run python -m src.evals.cost_latency
+
+baseline-norag:
+	uv run python -m src.evals.baseline_norag
+
 clean:
 	docker compose down -v
