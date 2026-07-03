@@ -1,13 +1,14 @@
 # PaperTrail — Citation-Grounded Biomedical RAG Agent with Evaluation Harness
 
-A citation-grounded research agent over 8,660 PubMed abstracts on GLP-1 receptor
-agonists (semaglutide, tirzepatide, liraglutide, etc.), with hybrid (BM25 +
-dense) retrieval, cross-encoder reranking, and a LangGraph agent that refuses
-to answer when the corpus doesn't support a claim. The project's actual
-deliverable is the eval harness: a hand-verified 50-question golden set, an
-independent LLM judge (spot-checked against my own reading at 100% agreement),
-and a measured ablation grid that answers "what actually moves the numbers?"
-rather than asserting it.
+A citation-grounded research agent over 8,660 PubMed abstracts (plus a 50-paper
+open-access full-text subset) on GLP-1 receptor agonists (semaglutide,
+tirzepatide, liraglutide, etc.), with hybrid (BM25 + dense) retrieval,
+cross-encoder reranking, and a LangGraph agent that refuses to answer when the
+corpus doesn't support a claim. The project's actual deliverable is the eval
+harness: a hand-verified 50-question golden set, an independent LLM judge
+(spot-checked against my own reading at 100% agreement), and a measured
+ablation grid that answers "what actually moves the numbers?" rather than
+asserting it.
 
 Stack: Python 3.12, Postgres 16 + pgvector (dense + lexical + metadata in one
 transactional store), LangGraph, OpenAI (`text-embedding-3-small` /
@@ -220,6 +221,42 @@ under `evals/results/<run_id>/`.
   original plan defaulted to whole-abstract chunking; the ablation grid is
   what actually moved the shipped default to sentence-window.
 
+## Full-text ingestion (PMC OA subset)
+
+The main corpus runs on abstracts. To test whether that's actually a
+limitation, I also ingested 50 open-access PMC full-text articles (42 of which
+are papers already in the abstract corpus — same paper, richer text, for a
+clean comparison) and chunked them at the paragraph level (`fulltext_paragraph`
+strategy, 2,358 chunks, ~25-220 words each, long paragraphs split on word
+boundaries).
+
+To make the value of full text measurable rather than asserted, I built a
+small 8-question set (`src/evals/golden_set_fulltext.jsonl`) using the same
+semi-automated + verified method as the main golden set, with one added gate:
+each question's fact had to be confirmed **absent from the paper's abstract**
+by an independent LLM check before being accepted (e.g. "what concentration
+of 2-NBDG was used to assess glucose uptake in C2C12 myotubes?" — a methods
+detail no abstract would ever include). Recall@5/@10 on this set, by chunking
+strategy:
+
+| Strategy | Recall@5 | Recall@10 |
+|---|---|---|
+| whole-abstract | 0/8 (0%) | 0/8 (0%) |
+| sentence-window | 2/8 (25%) | 2/8 (25%) |
+| **fulltext-paragraph** | **8/8 (100%)** | **8/8 (100%)** |
+
+Abstract-only retrieval cannot answer these questions almost by construction
+— the fact isn't in the indexed text at all, not a retrieval-quality problem.
+Full-text paragraph chunking closes that gap completely on this set. This is
+a real limitation of the shipped 8,660-abstract corpus worth naming directly:
+it's a strong system for the kind of headline-result questions the main
+golden set tests, but it cannot answer detail/methods-level questions unless
+the source paper's full text has been ingested — which most of the corpus
+hasn't been, both for scope reasons (open-access full text is a small
+fraction of PubMed) and cost/complexity (JATS XML parsing, longer chunks,
+more embeddings). Scaling this from 50 papers to the full corpus is the
+natural next step.
+
 ## Repro
 
 ```bash
@@ -230,5 +267,6 @@ make index               # chunk + embed (set chunking.strategy in config.yaml)
 make ask Q="How do semaglutide and tirzepatide compare on weight loss?"
 make eval                 # full 50-question golden set -> evals/results/<run_id>/
 python -m src.evals.report <run_id> [<run_id> ...]   # results table
-python -m src.evals.ablate                            # retrieval-only A-E grid
+make ablate                                           # retrieval-only A-E grid
+make ingest-fulltext                                  # 50 PMC OA full-text papers
 ```

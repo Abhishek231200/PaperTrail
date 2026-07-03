@@ -1,4 +1,4 @@
-.PHONY: up down ingest stats index ask eval report clean
+.PHONY: up down ingest ingest-fulltext stats index ask eval report ablate clean
 
 up:
 	docker compose up -d
@@ -11,6 +11,10 @@ down:
 
 ingest: up
 	uv run python -m src.corpus.fetch
+
+ingest-fulltext: up
+	uv run python -m src.corpus.fetch_fulltext
+	uv run python -m src.evals.build_fulltext_questions
 
 stats:
 	uv run python -m src.corpus.stats
@@ -29,6 +33,9 @@ eval:
 
 report:
 	uv run python -m src.evals.report
+
+ablate:
+	uv run python -m src.evals.ablate
 
 clean:
 	docker compose down -v

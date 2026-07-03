@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .venv/
 data/raw/*.xml
+data/raw_fulltext/*.xml
 *.egg-info/
 .DS_Store
 evals/results/*.jsonl
