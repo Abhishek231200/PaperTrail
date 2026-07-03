@@ -1,0 +1,52 @@
+[
+  {
+    "run": "A: dense only",
+    "chunking": "whole_abstract",
+    "dense": true,
+    "lexical": false,
+    "rerank": false,
+    "recall_at_5": 0.5675675675675675,
+    "recall_at_10": 0.5945945945945946,
+    "n": 37
+  },
+  {
+    "run": "B: lexical only",
+    "chunking": "whole_abstract",
+    "dense": false,
+    "lexical": true,
+    "rerank": false,
+    "recall_at_5": 0.2702702702702703,
+    "recall_at_10": 0.2702702702702703,
+    "n": 37
+  },
+  {
+    "run": "C: hybrid RRF (no rerank)",
+    "chunking": "whole_abstract",
+    "dense": true,
+    "lexical": true,
+    "rerank": false,
+    "recall_at_5": 0.6756756756756757,
+    "recall_at_10": 0.7027027027027027,
+    "n": 37
+  },
+  {
+    "run": "D: hybrid + rerank",
+    "chunking": "whole_abstract",
+    "dense": true,
+    "lexical": true,
+    "rerank": true,
+    "recall_at_5": 0.7027027027027027,
+    "recall_at_10": 0.7027027027027027,
+    "n": 37
+  },
+  {
+    "run": "E: sentence-window + hybrid + rerank",
+    "chunking": "sentence_window",
+    "dense": true,
+    "lexical": true,
+    "rerank": true,
+    "recall_at_5": 0.7567567567567568,
+    "recall_at_10": 0.7837837837837838,
+    "n": 37
+  }
+]

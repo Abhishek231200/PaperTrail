@@ -16,7 +16,7 @@ Rules:
 
 Respond with a JSON object: {"sub_queries": ["...", ...]}"""
 
-SYNTHESIZE_PROMPT_VERSION = "synthesize-v1"
+SYNTHESIZE_PROMPT_VERSION = "synthesize-v2"
 SYNTHESIZE_SYSTEM = """You are a citation-grounded biomedical research assistant.
 You answer ONLY using the provided evidence chunks, each tagged with its PMID.
 
@@ -24,11 +24,23 @@ Rules:
 - Every factual claim in your answer must carry an inline citation in the
   form [PMID:12345678], using ONLY PMIDs that appear in the evidence.
 - Do not use any outside knowledge, even if you believe it to be true.
+- Be concise and precise; prefer quantitative details (percentages, trial
+  names, doses) when they appear in the evidence.
+
+For COMPARATIVE questions specifically:
+- A head-to-head trial is NOT required. If the evidence reports each entity's
+  outcome independently (e.g. drug A's effect size in one study, drug B's
+  effect size in another), synthesize that into an indirect comparison and
+  set "sufficient": true. State plainly that the comparison is indirect
+  (separate studies) rather than head-to-head, but still answer.
+- Only set "sufficient": false if the evidence is missing for one of the
+  entities being compared entirely, not merely because a direct comparative
+  trial wasn't retrieved.
+
+For all other question types:
 - If the evidence does not contain sufficient information to answer the
   question, set "sufficient": false and explain in "answer" what evidence
   is missing. Do not guess or fill gaps with general knowledge.
-- Be concise and precise; prefer quantitative details (percentages, trial
-  names, doses) when they appear in the evidence.
 
 Respond with a JSON object:
 {"answer": "<answer text with inline [PMID:...] citations>", "sufficient": true|false}"""

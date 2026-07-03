@@ -1,0 +1,34 @@
+chunking:
+  strategy: sentence_window
+  window_overlap: 1
+  window_sentences: 3
+corpus:
+  date_max: 2026
+  date_min: 2019
+  domain: GLP-1 receptor agonists
+  query: "(\"glucagon-like peptide-1 receptor agonist\"[Title/Abstract] OR\n \"GLP-1\
+    \ receptor agonist\"[Title/Abstract] OR\n semaglutide[Title/Abstract] OR tirzepatide[Title/Abstract]\
+    \ OR\n liraglutide[Title/Abstract]) AND 2019:2026[PDAT]\n"
+  target_size: 12000
+embedding:
+  dims: 1536
+  model: text-embedding-3-small
+  provider: openai
+eval:
+  golden_set_path: src/evals/golden_set.jsonl
+  human_spotcheck_fraction: 0.2
+  seed: 42
+generation:
+  model: gpt-4o-mini
+  provider: openai
+judge:
+  model: gpt-4o
+  provider: openai
+  temperature: 0
+retrieval:
+  dense_top_k: 20
+  lexical_top_k: 20
+  rerank_top_k: 5
+  reranker_model: BAAI/bge-reranker-base
+  rrf_k: 60
+seed: 42

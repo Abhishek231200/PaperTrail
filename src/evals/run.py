@@ -15,7 +15,9 @@ import yaml
 from dotenv import load_dotenv
 from tqdm import tqdm
 
+from src.agent import prompts as agent_prompts
 from src.agent.graph import format_evidence, run as run_agent
+from src.evals import judges as eval_judges
 from src.evals.citations import extract_cited_pmids
 from src.evals.judges import judge_faithfulness
 from src.retrieval.hybrid import hybrid_search
@@ -27,12 +29,22 @@ RESULTS_DIR = Path("evals/results")
 
 
 def config_run_id(config: dict) -> str:
+    """Every eval run is reproducible from this hash: it covers not just
+    config.yaml (chunking/retrieval/model choices) but also the versioned
+    agent and judge prompts, so a prompt edit produces a distinct run_id
+    instead of silently overwriting a prior run's results."""
     relevant = {
         "chunking": config["chunking"],
         "retrieval": config["retrieval"],
         "embedding": config["embedding"],
         "generation": config["generation"],
         "judge": config["judge"],
+        "prompt_versions": {
+            "plan": agent_prompts.PLAN_PROMPT_VERSION,
+            "synthesize": agent_prompts.SYNTHESIZE_PROMPT_VERSION,
+            "verify": agent_prompts.VERIFY_PROMPT_VERSION,
+            "judge": eval_judges.JUDGE_VERSION,
+        },
     }
     blob = json.dumps(relevant, sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()[:10]
@@ -43,8 +55,16 @@ def retrieval_only(question: str, config: dict) -> list[int]:
     embed_model = config["embedding"]["model"]
     r = config["retrieval"]
     fused = hybrid_search(question, strategy, embed_model, r["dense_top_k"], r["lexical_top_k"], r["rrf_k"])
-    top = rerank(question, fused, r["reranker_model"], 10)
-    return [item["pmid"] for item in top]
+    top = rerank(question, fused, r["reranker_model"], 15)
+    # Dedupe by pmid: under sentence_window chunking a paper can contribute
+    # several chunks, which would otherwise consume multiple top-10 slots.
+    pmids: list[int] = []
+    for item in top:
+        if item["pmid"] not in pmids:
+            pmids.append(item["pmid"])
+        if len(pmids) >= 10:
+            break
+    return pmids
 
 
 def recall_at_k(retrieved_pmids: list[int], expected_pmids: list[int], k: int) -> int:

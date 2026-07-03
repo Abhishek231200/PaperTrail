@@ -31,7 +31,7 @@ retrieval:
   reranker_model: BAAI/bge-reranker-base
 
 chunking:
-  strategy: whole_abstract   # whole_abstract | sentence_window
+  strategy: sentence_window   # whole_abstract | sentence_window
   window_sentences: 3
   window_overlap: 1
 
