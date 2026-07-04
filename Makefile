@@ -43,5 +43,8 @@ cost-latency:
 baseline-norag:
 	uv run python -m src.evals.baseline_norag
 
+demo:
+	uv run streamlit run app.py
+
 clean:
 	docker compose down -v

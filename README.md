@@ -15,6 +15,21 @@ transactional store), LangGraph, OpenAI (`text-embedding-3-small` /
 `gpt-4o-mini` generator / `gpt-4o` judge), `BAAI/bge-reranker-base` cross-encoder
 (local, CPU).
 
+## Demo
+
+```bash
+make up && make demo   # streamlit run app.py, needs OPENAI_API_KEY in .env
+```
+
+Cited answer, with the retry/self-verify state and retrieved evidence visible:
+
+![Cited answer with inline PMID citations](docs/screenshots/demo_answer.png)
+
+Refusal on a fabricated trial/drug — no evidence in the corpus supports it, so
+the agent says so instead of guessing:
+
+![INSUFFICIENT_EVIDENCE refusal state](docs/screenshots/demo_refusal.png)
+
 ## Architecture
 
 ```
@@ -330,6 +345,7 @@ make up                # postgres + pgvector via docker compose
 make ingest             # PubMed E-utilities -> ~8.6K abstracts
 make index               # chunk + embed (set chunking.strategy in config.yaml)
 make ask Q="How do semaglutide and tirzepatide compare on weight loss?"
+make demo                 # streamlit UI at localhost:8501
 make eval                 # full 50-question golden set -> evals/results/<run_id>/
 python -m src.evals.report <run_id> [<run_id> ...]   # results table
 make ablate                                           # retrieval-only A-E grid
